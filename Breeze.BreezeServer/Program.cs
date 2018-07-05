@@ -3,16 +3,14 @@ using System.IO;
 using System.Linq;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-
-using BreezeCommon;
-using NBitcoin;
-using NTumbleBit.ClassicTumbler.Server;
 using Breeze.BreezeServer.Services;
 
 namespace Breeze.BreezeServer
 {
 	public class Program
 	{
+	    private static ILogger _logger;
+
 		public static void Main(string[] args)
 		{
 			var serviceProvider = new ServiceCollection()
@@ -25,66 +23,77 @@ namespace Breeze.BreezeServer
 				.AddConsole(LogLevel.Debug);
 
 			// TODO: It is messy having both a BreezeServer logger and an NTumbleBit logger
-			var logger = serviceProvider.GetService<ILoggerFactory>()
-				.CreateLogger<Program>();
+			_logger = serviceProvider.GetService<ILoggerFactory>().CreateLogger<Program>();
 			
-			logger.LogInformation("{Time} Reading Breeze server configuration", DateTime.Now);
+		    LogInfo("Reading Breeze server configuration");
 
-			// Check OS-specific default config path for the config file. Create default file if it does not exist
-			string configDir = BreezeConfiguration.GetDefaultDataDir("BreezeServer");
+		    // Check OS-specific default config path for the config file. Create default file if it does not exist
+            string configDir = BreezeConfiguration.GetDefaultDataDir("BreezeServer");
 			if (args.Contains("testnet"))
 				configDir = Path.Combine(configDir, "TestNet");
 			else if (args.Contains("regtest"))
-				configDir = Path.Combine(configDir, "RegTest");
+			{
+			    configDir = Path.Combine(configDir, "RegTest");
+			}
 
             string configPath = Path.Combine(configDir, "breeze.conf");
 
-			logger.LogInformation("{Time} Configuration file path {Path}", DateTime.Now, configPath);
+		    LogInfo($"Configuration file path {configPath}");
 
             BreezeConfiguration config = new BreezeConfiguration(configPath);
 
-			logger.LogInformation("{Time} Pre-initialising server to obtain parameters for configuration", DateTime.Now);
-			
-			var preTumblerConfig = serviceProvider.GetService<ITumblerService>();
-			preTumblerConfig.StartTumbler(config, true);
+		    LogInfo("Pre-initialising server to obtain parameters for configuration");
 
-			string configurationHash = preTumblerConfig.runtime.ClassicTumblerParameters.GetHash().ToString();
-			string onionAddress = preTumblerConfig.runtime.TorUri.Host.Substring(0, 16);
-			NTumbleBit.RsaKey tumblerKey = preTumblerConfig.runtime.TumblerKey;
-			
-			// Mustn't be occupying hidden service URL when the TumblerService is reinitialised
-			preTumblerConfig.runtime.TorConnection.Dispose();
-			
-			// No longer need this instance of the class
-			preTumblerConfig = null;
-			
-			string regStorePath = Path.Combine(configDir, "registrationHistory.json");
+            var preTumblerConfig = serviceProvider.GetService<ITumblerService>();
 
-            logger.LogInformation("{Time} Registration history path {Path}", DateTime.Now, regStorePath);
-			logger.LogInformation("{Time} Checking node registration", DateTime.Now);
+		    LogInfo($"Tor enabled: {config.TorEnabled}.");
+
+            preTumblerConfig.StartTumbler(config, config.TorEnabled);
+
+			var configurationHash = preTumblerConfig.runtime.ClassicTumblerParameters.GetHash().ToString();
+
+		    var onionAddress = string.Empty;
+
+		    if (config.TorEnabled)
+		    {
+		        onionAddress = preTumblerConfig.runtime.TorUri.Host.Substring(0, 16);
+		        preTumblerConfig.runtime.TorConnection?.Dispose();
+            }
+            
+            NTumbleBit.RsaKey tumblerKey = preTumblerConfig.runtime.TumblerKey;
+						
+		    string regStorePath = Path.Combine(configDir, "registrationHistory.json");
+
+		    LogInfo($"Registration history path {regStorePath}");
+		    LogInfo("Checking node registration");
 
             BreezeRegistration registration = new BreezeRegistration();
 
             if (!registration.CheckBreezeRegistration(config, regStorePath, configurationHash, onionAddress, tumblerKey)) {
-				logger.LogInformation("{Time} Creating or updating node registration", DateTime.Now);
+				_logger.LogInformation("{Time} Creating or updating node registration", DateTime.Now);
 	            var regTx = registration.PerformBreezeRegistration(config, regStorePath, configurationHash, onionAddress, tumblerKey);
 				if (regTx != null) {
-					logger.LogInformation("{Time} Submitted transaction {TxId} via RPC for broadcast", DateTime.Now, regTx.GetHash().ToString());
-				}
+				    LogInfo($"Submitted transaction {regTx.GetHash()} via RPC for broadcast");
+                }
 				else {
-					logger.LogInformation("{Time} Unable to broadcast transaction via RPC", DateTime.Now);
+				    LogInfo("Unable to broadcast transaction via RPC");
                     Environment.Exit(0);
 				}
 			}
 			else {
-				logger.LogInformation("{Time} Node registration has already been performed", DateTime.Now);
-			}
+                LogInfo("Node registration has already been performed");
+            }
 
-			logger.LogInformation("{Time} Starting Tumblebit server", DateTime.Now);
+		    LogInfo("Starting Tumblebit server");
 
-			var tumbler = serviceProvider.GetService<ITumblerService>();
+            var tumbler = serviceProvider.GetService<ITumblerService>();
 			
 			tumbler.StartTumbler(config, false);
 		}
+
+	    private static void LogInfo(string msg)
+	    {
+	        _logger.LogInformation($"{DateTime.Now} {msg}");
+        }
 	}
 }

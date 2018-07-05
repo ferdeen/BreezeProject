@@ -8,6 +8,10 @@
       "commandName": "Project",
       "commandLineArgs": "-testnet -tumbler-uri=http://localhost:5050 light -debug=all -loglevel=debug"
     },
+    "Breeze.Daemon RegTest": {
+      "commandName": "Project",
+      "commandLineArgs": "light -regtest -tumblebit registration "
+    },
     "StratisTest": {
       "commandName": "Project",
       "commandLineArgs": "stratis -testnet"

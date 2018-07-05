@@ -1,13 +1,10 @@
 // Based on StratisBitcoinFullNode configuration code
 
 using System;
-
 using System.Net;
 using System.Text;
 using System.IO;
-
 using NBitcoin;
-using NTumbleBit;
 
 namespace Breeze.BreezeServer
 {
@@ -36,6 +33,8 @@ namespace Breeze.BreezeServer
         public Money TxOutputValueSetting { get; set; }
         public Money TxFeeValueSetting { get; set; }
 
+        public bool TorEnabled { get; set; }
+
         public BreezeConfiguration(string configPath, string datadir = null)
         {
             try
@@ -59,7 +58,11 @@ namespace Breeze.BreezeServer
                     builder.AppendLine("#tumbler.url=");
                     builder.AppendLine("#tumbler.rsakeyfile=");
                     builder.AppendLine("#tumbler.ecdsakeyaddress=");
+                    builder.AppendLine("#tor.enabled=");
 
+                    var fileInfo = new FileInfo(configPath);
+                    fileInfo.Directory?.Create();
+                    
                     File.WriteAllText(configPath, builder.ToString());
 
                     Console.WriteLine("*** Default blank configuration file created, please set configuration values and restart ***");
@@ -172,6 +175,9 @@ namespace Breeze.BreezeServer
 
                 TxOutputValueSetting = new Money(configFile.GetOrDefault<int>("breeze.regtxoutputvalue", 1000), MoneyUnit.Satoshi);
                 TxFeeValueSetting = new Money(configFile.GetOrDefault<int>("breeze.regtxfeevalue", 10000), MoneyUnit.Satoshi);
+
+                TorEnabled = configFile.GetOrDefault("tor.enabled", true);
+
             }
             catch (Exception e)
             {
@@ -201,15 +207,10 @@ namespace Breeze.BreezeServer
 					throw new DirectoryNotFoundException("Could not find suitable datadir");
 				}
 			}
-			if (!Directory.Exists(directory))
-			{
-				Directory.CreateDirectory(directory);
-			}
-			//directory = Path.Combine(directory, network.Name);
-			if (!Directory.Exists(directory))
-			{
-				Directory.CreateDirectory(directory);
-			}
+
+		    var fileInfo = new FileInfo(directory);
+		    fileInfo.Directory?.Create();
+
 			return directory;
 		}
     }
