@@ -170,6 +170,10 @@ namespace NTumbleBit.ClassicTumbler.Server
 			{
 				TorSettings = TorConnectionSettings.ParseConnectionSettings("tor", config);
 			}
+			else
+			{
+			    TorMandatory = false;
+			}
 
 			Cooperative = config.GetOrDefault<bool>("cooperative", true);
 

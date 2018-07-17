@@ -1,6 +1,8 @@
 ﻿using System;
 using System.IO;
 using System.Linq;
+using System.Net;
+using System.Net.Sockets;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Breeze.BreezeServer.Services;
@@ -48,18 +50,22 @@ namespace Breeze.BreezeServer
 
 		    LogInfo($"Tor enabled: {config.TorEnabled}.");
 
-            preTumblerConfig.StartTumbler(config, config.TorEnabled);
+		    preTumblerConfig.StartTumbler(config, true, torMandatory: config.TorEnabled);
 
 			var configurationHash = preTumblerConfig.runtime.ClassicTumblerParameters.GetHash().ToString();
 
-		    var onionAddress = string.Empty;
+		    string onionAddress;
 
 		    if (config.TorEnabled)
 		    {
 		        onionAddress = preTumblerConfig.runtime.TorUri.Host.Substring(0, 16);
 		        preTumblerConfig.runtime.TorConnection?.Dispose();
             }
-            
+		    else
+		    {
+		        onionAddress = preTumblerConfig.runtime.TumblerUris.Count > 0 ? preTumblerConfig.runtime.TumblerUris[0].Host : LocalIpAddress().ToString();
+		    }
+
             NTumbleBit.RsaKey tumblerKey = preTumblerConfig.runtime.TumblerKey;
 						
 		    string regStorePath = Path.Combine(configDir, "registrationHistory.json");
@@ -95,5 +101,16 @@ namespace Breeze.BreezeServer
 	    {
 	        _logger.LogInformation($"{DateTime.Now} {msg}");
         }
-	}
+
+	    private static IPAddress LocalIpAddress()
+	    {
+	        if (!System.Net.NetworkInformation.NetworkInterface.GetIsNetworkAvailable()) return null;
+
+	        var host = Dns.GetHostEntry(Dns.GetHostName());
+
+	        return host
+	            .AddressList
+	            .FirstOrDefault(ip => ip.AddressFamily == AddressFamily.InterNetwork);
+	    }
+    }
 }

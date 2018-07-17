@@ -102,7 +102,7 @@ namespace NTumbleBit.ClassicTumbler.Server
 					Logs.Configuration.LogWarning("Error while configuring Tor hidden service: " + error.Message);
 			}
 
-			if(!torConfigured)
+			if (conf.TorMandatory && !torConfigured)
 				Logs.Configuration.LogWarning("The tumbler is not configured as a Tor Hidden service");
 
 
