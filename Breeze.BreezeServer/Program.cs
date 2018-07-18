@@ -63,7 +63,15 @@ namespace Breeze.BreezeServer
             }
 		    else
 		    {
-		        onionAddress = preTumblerConfig.runtime.TumblerUris.Count > 0 ? preTumblerConfig.runtime.TumblerUris[0].Host : LocalIpAddress().ToString();
+		        var host = Environment.MachineName;
+
+		        if (host.Length > 16)
+		            host = host.Substring(0, 16);
+
+		        if (host.Length < 16)
+		            host = host + "-";
+
+                onionAddress = host;
 		    }
 
             NTumbleBit.RsaKey tumblerKey = preTumblerConfig.runtime.TumblerKey;
